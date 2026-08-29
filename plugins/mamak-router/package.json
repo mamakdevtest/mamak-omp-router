@@ -1,0 +1,31 @@
+{
+  "name": "mamak-router",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-key OpenAI-compatible credential router for oh-my-pi.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/mamak-omp-router.git",
+    "directory": "plugins/mamak-router"
+  },
+  "omp": {
+    "extensions": ["./src/index.ts"]
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@oh-my-pi/pi-ai": ">=18.0.11 <19",
+    "@oh-my-pi/pi-coding-agent": ">=18.0.11 <19"
+  },
+  "devDependencies": {
+    "@oh-my-pi/pi-ai": "18.0.11",
+    "@oh-my-pi/pi-coding-agent": "18.0.11",
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  }
+}

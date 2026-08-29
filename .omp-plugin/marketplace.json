@@ -1,0 +1,35 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mamak-omp-router",
+  "owner": {
+    "name": "Mamak Studio"
+  },
+  "metadata": {
+    "description": "Mamak Router marketplace for oh-my-pi.",
+    "version": "0.1.0",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    {
+      "name": "mamak-router",
+      "description": "Multi-key OpenAI-compatible credential routing for oh-my-pi.",
+      "source": "./mamak-router",
+      "version": "0.1.0",
+      "author": { "name": "Mamak Studio" },
+      "homepage": "https://github.com/YOUR_GITHUB_USERNAME/mamak-omp-router",
+      "repository": "https://github.com/YOUR_GITHUB_USERNAME/mamak-omp-router",
+      "license": "MIT",
+      "keywords": [
+        "router",
+        "multi-account",
+        "multi-api-key",
+        "fallback",
+        "round-robin",
+        "provider",
+        "rate-limit"
+      ],
+      "category": "development",
+      "tags": ["router", "credential-pool", "openai-compatible"]
+    }
+  ]
+}
