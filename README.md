@@ -14,7 +14,10 @@ Mamak Router is a small external Marketplace plugin. It registers one OpenAI-com
 ## Features
 
 - Any number of environment-supplied API keys per provider.
-- `round-robin` and `fallback` selection.
+- `round-robin`, `fallback`, `fill-first`, `weighted`, and `least-used` selection.
+- Priority tiers and configurable weights without storing a secret.
+- Provider fallback chains for shared OpenAI-compatible model ids.
+- In-memory provider request, 429, and quota-exhaustion counters.
 - Retry cap: five attempts per request by default.
 - 401 disables a credential; quota-like 403 exhausts it; 429 cools it down; 408/network/5xx rotate.
 - No rotation for malformed requests (400, ordinary 403, 404, 422).
@@ -82,7 +85,11 @@ Without `MAMAK_ROUTER_CONFIG`, the plugin registers DeepSeek (`deepseek-chat`, `
 ### Strategies
 
 - **round-robin**: starts each request at the next healthy credential.
-- **fallback**: starts each request at the first healthy credential in import order.
+- **fallback** / **fill-first**: use the first healthy credential in the highest available priority tier.
+- **weighted**: randomly chooses within that priority tier according to `weight`.
+- **least-used**: chooses the fewest-successful, then least-recently-used credential in that tier.
+
+`credentialPolicies` configures generated ids such as `deepseek-1`; lower numeric `priority` wins. `fallbackProviders` receives a request only after source-provider key attempts fail before output, and only when it declares the same model id. `/router quota [provider]` reports in-memory request/rate-limit/exhaustion counters; `/router dashboard` renders the local terminal dashboard.
 
 Disabled, invalid, exhausted, and cooling-down credentials are skipped. A 429 cooldown honors retry hints when the transport exposes them; otherwise the default profile starts at 60 seconds and doubles, bounded by `maxSeconds`. Set `defaultSeconds` to `30` for a 30/60/120/240-second ladder.
 
@@ -91,10 +98,12 @@ Disabled, invalid, exhausted, and cooling-down credentials are skipped. A 429 co
 ```text
 /router status
 /router list [provider]
+/router quota [provider]
+/router dashboard
 /router remove <provider> <credential>
 /router enable <provider> <credential>
 /router disable <provider> <credential>
-/router strategy <provider> <round-robin|fallback>
+/router strategy <provider> <round-robin|fallback|fill-first|weighted|least-used>
 /router add <provider>
 ```
 
@@ -117,9 +126,8 @@ omp plugin upgrade mamak-router@mamak-omp-router
 
 ## Compatibility
 
-| Plugin | OMP |
-| --- | --- |
 | 0.1.x | `@oh-my-pi/pi-coding-agent` and `@oh-my-pi/pi-ai` `>=18.0.11 <19` |
+| 0.2.x | `@oh-my-pi/pi-coding-agent` and `@oh-my-pi/pi-ai` `>=18.0.11 <19` |
 
 The Marketplace format has no OMP compatibility gate, so the package peer range is the compatibility signal.
 
@@ -134,14 +142,15 @@ bun run build
 
 ## Limitations
 
-- API-key OpenAI-compatible routing only; OAuth account pooling is out of scope.
+- OAuth account pooling for Claude Code, Codex, and Gemini cannot be implemented safely with the current public OMP extension API. It exposes OAuth `login`/`refreshToken` registration but no extension-accessible account list, credential selection, or credential store.
 - No secure interactive key entry or persistent secret CRUD until OMP exposes public APIs for both.
 - Provider model metadata is conservative generic metadata; configure custom model ids explicitly.
+- Quota tracking counts provider outcomes in memory; normalized OMP transport errors do not always retain raw quota headers.
 - Retry headers are used only when propagated by the transport. OMP's built-in OpenAI stream normalizes some errors before the plugin can inspect headers.
 - One visible streaming response is never replayed after an error.
 
 ## Roadmap
 
-V2: fill-first, weights, least-used scheduling, priority, quotas, and provider fallback chains.
+V2 is implemented: fill-first, weighted and least-used scheduling, credential priority, outcome counters, provider fallback chains, and a terminal dashboard.
 
-V3: OAuth account pools for Claude Code, Codex, and Gemini plus a central dashboard.
+V3 is blocked upstream: an external plugin needs public credential-pool list/select/store APIs before OAuth account pools for Claude Code, Codex, or Gemini can be built without duplicating OMP internal auth storage. The current dashboard is intentionally a local `/router dashboard` terminal surface, not a web dashboard.

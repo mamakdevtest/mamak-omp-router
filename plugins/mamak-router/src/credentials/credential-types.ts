@@ -12,6 +12,7 @@ export interface RouterCredential {
 	enabled: boolean;
 	status: CredentialStatus;
 	priority?: number;
+	weight?: number;
 	successCount: number;
 	failureCount: number;
 	lastUsedAt?: number;
@@ -25,8 +26,7 @@ export interface CredentialSecret {
 	credential: RouterCredential;
 	secret: string;
 }
-
-export type RoutingStrategy = "round-robin" | "fallback";
+export type RoutingStrategy = "round-robin" | "fallback" | "fill-first" | "weighted" | "least-used";
 
 export interface CooldownSettings {
 	defaultSeconds: number;

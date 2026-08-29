@@ -1,7 +1,7 @@
 {
   "name": "mamak-omp-router",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Marketplace workspace for the Mamak Router oh-my-pi plugin.",
   "workspaces": [
     "plugins/*"

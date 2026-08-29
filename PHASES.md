@@ -37,3 +37,19 @@
 - [x] build
 - [x] smoke test
 - [x] documentation
+
+## V2 — Advanced API-key Routing
+- [x] Credential priority and policy configuration
+- [x] fill-first, weighted, and least-used strategies
+- [x] In-memory quota outcome counters
+- [x] Matching-model provider fallback chains
+- [x] `/router quota` and `/router dashboard`
+- [x] Tests and local fallback smoke test
+
+## V3 — OAuth Pools
+- [x] Public extension OAuth surface researched
+- [!] Blocked: public OMP credential-pool list/select/store API is required
+- [!] Blocked: Claude Code OAuth pool
+- [!] Blocked: Codex OAuth pool
+- [!] Blocked: Gemini OAuth pool
+- [x] Local terminal dashboard delivered; web dashboard remains out of scope

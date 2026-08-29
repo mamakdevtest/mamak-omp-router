@@ -5,6 +5,9 @@ import type { CredentialSecret, RouterSettings } from "../src/credentials/creden
 import { calculateCooldownSeconds, calculateCooldownUntil } from "../src/router/cooldown-manager";
 import { CredentialRouter, CredentialsUnavailableError } from "../src/router/credential-router";
 import { classifyError } from "../src/router/error-classifier";
+import { validateRouterPluginConfig } from "../src/config/schema";
+import { ProviderQuotaTracker } from "../src/router/quota-tracker";
+import { selectFillFirst, selectLeastUsed, selectWeighted } from "../src/router/strategies";
 
 const settings: RouterSettings = {
 	maxAttemptsPerRequest: 5,
@@ -105,5 +108,58 @@ describe("environment credential import", () => {
 		expect(JSON.stringify(store.listSummaries())).not.toContain("one");
 		expect(JSON.stringify(store.listSummaries())).not.toContain("two");
 		expect(JSON.stringify(store.listSummaries())).not.toContain("three");
+	});
+});
+
+describe("V2 routing policies", () => {
+	test("honors priority for fill-first and least-used selection", () => {
+		const primary = createCredential("primary");
+		const secondary = createCredential("secondary");
+		primary.credential.priority = 0;
+		secondary.credential.priority = 1;
+		secondary.credential.successCount = 0;
+		primary.credential.successCount = 100;
+
+		expect(selectFillFirst([secondary, primary])?.credential.credential.id).toBe("primary");
+		expect(selectLeastUsed([secondary, primary])?.credential.credential.id).toBe("primary");
+
+		primary.credential.status = "cooldown";
+		primary.credential.cooldownUntil = Date.now() + 60_000;
+		expect(selectFillFirst([secondary, primary])?.credential.credential.id).toBe("secondary");
+	});
+
+	test("selects by weight deterministically and tracks quota outcomes", async () => {
+		const first = createCredential("first");
+		const second = createCredential("second");
+		first.credential.weight = 1;
+		second.credential.weight = 9;
+		expect(selectWeighted([first, second], Date.now(), undefined, () => 0.95)?.credential.credential.id).toBe("second");
+
+		const quota = new ProviderQuotaTracker("deepseek");
+		const router = new CredentialRouter([first, second], { strategy: "weighted", settings, random: () => 0, quotaTracker: quota });
+		await expect(router.run(async () => {
+			throw { status: 429, message: "rate limited" };
+		})).rejects.toMatchObject({ status: 429 });
+		expect(quota.snapshot()).toMatchObject({ requestCount: 2, rateLimitCount: 2, lastStatus: 429 });
+	});
+
+	test("validates fallback chains and credential policies without secrets", () => {
+		const config = validateRouterPluginConfig({
+			routing: settings,
+			providers: [
+				{
+					id: "primary",
+					enabled: true,
+					baseUrl: "https://primary.example/v1",
+					models: ["shared-model"],
+					strategy: "least-used",
+					fallbackProviders: ["secondary"],
+					credentialPolicies: [{ id: "primary-1", priority: 0, weight: 4 }],
+				},
+				{ id: "secondary", enabled: true, baseUrl: "https://secondary.example/v1", models: ["shared-model"] },
+			],
+		});
+		expect(config.providers[0]?.fallbackProviders).toEqual(["secondary"]);
+		expect(config.providers[0]?.credentialPolicies).toEqual([{ id: "primary-1", priority: 0, weight: 4 }]);
 	});
 });

@@ -40,7 +40,11 @@ function applyProviderOverrides(config: RouterPluginConfig, value: unknown): voi
 	const seen = new Set<string>();
 	for (let index = 0; index < value.length; index += 1) {
 		const override = configurationObject(value[index], `providers[${index}]`);
-		rejectUnknownFields(override, ["id", "enabled", "baseUrl", "models", "strategy"], `providers[${index}]`);
+		rejectUnknownFields(
+			override,
+			["id", "enabled", "baseUrl", "models", "strategy", "fallbackProviders", "credentialPolicies"],
+			`providers[${index}]`,
+		);
 		const id = providerId(override.id, `providers[${index}].id`);
 		if (seen.has(id)) {
 			throw new RouterConfigurationError(`providers contains duplicate id "${id}"`);

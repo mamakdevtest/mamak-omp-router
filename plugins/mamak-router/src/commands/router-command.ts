@@ -1,11 +1,14 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import type { RoutingStrategy } from "../credentials/credential-types";
 
 export interface RouterCommandState {
 	status(): string;
 	list(providerId?: string): string;
 	remove(providerId: string, credentialId: string): string;
 	setEnabled(providerId: string, credentialId: string, enabled: boolean): string;
-	setStrategy(providerId: string, strategy: "round-robin" | "fallback"): string;
+	setStrategy(providerId: string, strategy: RoutingStrategy): string;
+	quota(providerId?: string): string;
+	dashboard(): string;
 }
 
 export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandState): void {
@@ -37,12 +40,22 @@ function runRouterCommand(state: RouterCommandState, command: string, providerId
 			if (!providerId || !value) return "Router error: usage: /router disable <provider> <credential>";
 			return state.setEnabled(providerId, value, false);
 		case "strategy":
-			if (value !== "round-robin" && value !== "fallback") {
-				return "Router error: usage: /router strategy <provider> <round-robin|fallback>";
+			if (
+				value !== "round-robin" &&
+				value !== "fallback" &&
+				value !== "fill-first" &&
+				value !== "weighted" &&
+				value !== "least-used"
+			) {
+				return "Router error: usage: /router strategy <provider> <round-robin|fallback|fill-first|weighted|least-used>";
 			}
 			return providerId ? state.setStrategy(providerId, value) : "Router error: missing provider";
+		case "quota":
+			return state.quota(providerId);
+		case "dashboard":
+			return state.dashboard();
 		default:
-			return "Router error: commands: status, list [provider], add, remove, enable, disable, strategy";
+			return "Router error: commands: status, list [provider], quota [provider], dashboard, add, remove, enable, disable, strategy";
 	}
 }
 

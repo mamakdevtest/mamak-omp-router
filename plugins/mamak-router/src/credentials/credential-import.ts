@@ -5,6 +5,7 @@ import type { CredentialSummary } from "./credential-store";
 export interface CredentialImportProvider {
 	id: string;
 	enabled: boolean;
+	credentialPolicies?: readonly { id: string; priority?: number; weight?: number }[];
 }
 
 export type CredentialEnvironment = Readonly<Record<string, string | undefined>>;
@@ -74,13 +75,23 @@ export async function importCredentialsFromEnvironment(
 		for (const secret of keys) {
 			sequence += 1;
 			const fingerprint = await sha256Fingerprint(secret);
+			const id = `${provider.id}-${sequence}`;
+			let policy: { id: string; priority?: number; weight?: number } | undefined;
+			for (const candidate of provider.credentialPolicies ?? []) {
+				if (candidate.id === id) {
+					policy = candidate;
+					break;
+				}
+			}
 			const credential: RouterCredential = {
-				id: `${provider.id}-${sequence}`,
+				id,
 				providerId: provider.id,
 				enabled: provider.enabled,
 				status: provider.enabled ? "healthy" : "disabled",
 				successCount: 0,
 				failureCount: 0,
+				...(policy?.priority === undefined ? {} : { priority: policy.priority }),
+				...(policy?.weight === undefined ? {} : { weight: policy.weight }),
 				fingerprint,
 			};
 			const credentialSecret: CredentialSecret = { credential, secret };
