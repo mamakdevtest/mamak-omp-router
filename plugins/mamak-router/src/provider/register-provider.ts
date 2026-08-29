@@ -4,7 +4,7 @@ import type { RouterPluginConfig, RouterProviderConfig } from "../config/schema"
 import { CredentialStore } from "../credentials/credential-store";
 import { CredentialRouter } from "../router/credential-router";
 import { ProviderQuotaTracker } from "../router/quota-tracker";
-import { createOpenAICompatibleRouterStream, type RouterTransportTarget } from "./request-adapter";
+import { createLinkedProviderStream, createOpenAICompatibleRouterStream, type RouterTransportTarget } from "./request-adapter";
 
 const ROUTER_API_KEY_PLACEHOLDER = "MAMAK_ROUTER_MANAGED_KEY";
 
@@ -44,11 +44,21 @@ export function registerRouterProviders(pi: ExtensionAPI, config: RouterPluginCo
 		pi.registerProvider(`mamak-router-${provider.id}`, {
 			baseUrl: provider.baseUrl,
 			api,
-			// OMP requires a provider key to validate dynamic registration. The custom
-			// stream replaces it with the selected in-memory pool credential.
 			apiKey: ROUTER_API_KEY_PLACEHOLDER,
+			streamSimple: createOpenAICompatibleRouterStream(targets),
 			models: provider.models.map(id => createModelConfig(id, api, provider.id)),
 		});
+		// Link normal provider: groq/gpt-oss-120b etc. now tries normal key first, then router pool
+		if (provider.linkNormalProvider ?? true) {
+			const linkedApi = `mamak-router-linked-${provider.id}` as Api;
+			pi.registerProvider(provider.id, {
+				baseUrl: provider.baseUrl,
+				api: linkedApi,
+				apiKey: ROUTER_API_KEY_PLACEHOLDER,
+				streamSimple: createLinkedProviderStream(targets),
+				models: provider.models.map(id => createModelConfig(id, linkedApi, provider.id)),
+			});
+		}
 	}
 	return { routers, quotaTrackers };
 }

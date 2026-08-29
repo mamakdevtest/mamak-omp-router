@@ -28,6 +28,62 @@ export function createOpenAICompatibleRouterStream(targets: readonly RouterTrans
 	};
 }
 
+/**
+ * Normal provider first, then router pool. If normal provider has no key
+ * (CredentialsUnavailableError / MissingApiKeyError) or returns shouldRotate
+ * error (401/429/5xx), fall back to pooled keys before any `start` is emitted.
+ */
+export function createLinkedProviderStream(
+	poolTargets: readonly RouterTransportTarget[],
+): RouterStream {
+	return (model, context, options) => {
+		const output = new AssistantMessageEventStream();
+		void output.trackLocalWork(forwardLinkedAttempt(output, poolTargets, model, context, options));
+		return output;
+	};
+}
+async function forwardLinkedAttempt(
+	output: AssistantMessageEventStream,
+	poolTargets: readonly RouterTransportTarget[],
+	model: Model<Api>,
+	context: Context,
+	options: SimpleStreamOptions | undefined,
+): Promise<void> {
+	try {
+		const stream = streamOpenAICompletions(model as Model<"openai-completions">, context, options as unknown as never);
+		const iterator = stream[Symbol.asyncIterator]();
+		const first = await iterator.next();
+		if (first.done) throw new Error(`Provider ${model.provider} stream ended before its first event`);
+		if (first.value.type === "error") throw first.value.error;
+		if (first.value.type !== "start") throw new Error(`Provider ${model.provider} emitted output before its start event`);
+		output.forwardLocalWorkFrom(stream);
+		output.push(first.value);
+		for (;;) {
+			const event = await iterator.next();
+			if (event.done) return;
+			output.push(event.value);
+			if (event.value.type === "done" || event.value.type === "error") return;
+		}
+	} catch (error) {
+		const classification = classifyError(error);
+		const isMissingKey =
+			error instanceof Error && /MissingApiKeyError|No healthy router credentials|No configured provider fallback/i.test(error.message);
+		const shouldFallback = isMissingKey || classification.shouldRotate;
+		if (!shouldFallback) {
+			output.push({ type: "error", reason: "error", error: createRouterErrorMessage(model, error) });
+			return;
+		}
+		// Fall back to pooled keys (+ fallbackProviders chain) before start
+		try {
+			await forwardFirstCommittedAttempt(output, poolTargets, model, context, options);
+		} catch (poolError) {
+			output.push({ type: "error", reason: "error", error: createRouterErrorMessage(model, poolError) });
+		}
+	} finally {
+		output.forwardLocalWorkFrom(undefined);
+	}
+}
+
 async function forwardFirstCommittedAttempt(
 	output: AssistantMessageEventStream,
 	targets: readonly RouterTransportTarget[],

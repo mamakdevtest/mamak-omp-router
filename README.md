@@ -88,9 +88,7 @@ Without `MAMAK_ROUTER_CONFIG`, the plugin registers DeepSeek (`deepseek-chat`, `
 - **weighted**: randomly chooses within that priority tier according to `weight`.
 - **least-used**: chooses the fewest-successful, then least-recently-used credential in that tier.
 
-`credentialPolicies` configures generated ids such as `deepseek-1`; lower numeric `priority` wins. `fallbackProviders` receives a request only after source-provider key attempts fail before output, and only when it declares the same model id. `/router quota [provider]` reports in-memory request/rate-limit/exhaustion counters; `/router dashboard` renders the local terminal dashboard.
-
-Disabled, invalid, exhausted, and cooling-down credentials are skipped. A 429 cooldown honors retry hints when the transport exposes them; otherwise the default profile starts at 60 seconds and doubles, bounded by `maxSeconds`. Set `defaultSeconds` to `30` for a 30/60/120/240-second ladder.
+`credentialPolicies` configures generated ids such as `deepseek-1`; lower numeric `priority` wins. `fallbackProviders` receives a request only after source-provider key attempts fail before output, and only when it declares the same model id. Linked mode (default): `groq/gpt-oss-120b` önce normal `GROQ_API_KEY` dener, yok/401/429/5xx ise `MAMAK_ROUTER_GROQ_KEYS` havuzundan devam eder — havuz provider'ın içine girer. `mamak-router-groq/<model>` ise garantili pool-only'dir. `/router quota [provider]` reports in-memory request/rate-limit/exhaustion counters; `/router dashboard` renders the local terminal dashboard with `[linked, normal:present/missing]`.
 
 ## Commands
 

@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Mamak Router marketplace for oh-my-pi.",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "pluginRoot": "plugins"
   },
   "plugins": [
     {
       "name": "mamak-router",
       "description": "Multi-key OpenAI-compatible credential routing for oh-my-pi.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "author": { "name": "Mamak Studio" },
       "homepage": "https://github.com/YOUR_GITHUB_USERNAME/mamak-omp-router",
       "repository": "https://github.com/YOUR_GITHUB_USERNAME/mamak-omp-router",

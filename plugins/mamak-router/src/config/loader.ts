@@ -42,7 +42,7 @@ function applyProviderOverrides(config: RouterPluginConfig, value: unknown): voi
 		const override = configurationObject(value[index], `providers[${index}]`);
 		rejectUnknownFields(
 			override,
-			["id", "enabled", "baseUrl", "models", "strategy", "fallbackProviders", "credentialPolicies"],
+			["id", "enabled", "baseUrl", "models", "strategy", "fallbackProviders", "credentialPolicies", "linkNormalProvider"],
 			`providers[${index}]`,
 		);
 		const id = providerId(override.id, `providers[${index}].id`);

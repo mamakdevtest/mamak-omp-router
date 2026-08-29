@@ -33,34 +33,31 @@ TUI içinde:
 /router quota groq    # requests/rate-limits/exhausted
 ```
 
-Model seçimi:
+Model seçimi — **artık normal provider doğrudan havuzlu** (linked):
 
 ```text
-mamak-router-zai/glm-4.7
-mamak-router-opencode-zen/big-pickle
+groq/openai/gpt-oss-120b              # önce GROQ_API_KEY dene, yok/hata → MAMAK_ROUTER_GROQ_KEYS pool
+zai/glm-4.7                            # önce ZAI_API_KEY, yok/hata → MAMAK_ROUTER_ZAI_KEYS
+opencode-zen/big-pickle               # önce OPENCODE_ZEN_API_KEY, yok/hata → MAMAK_ROUTER_OPENCODE_ZEN_KEYS
+# pool-only (garantili havuz, normal key denenmez):
 mamak-router-groq/openai/gpt-oss-120b
-mamak-router-cerebras/qwen-3-coder-480b
+mamak-router-zai/glm-4.7
 ```
 
-## Coder / Codex / Common Code
+Router havuzundaki keyler normal provider'ın **içine** girer: provider'da key yoksa veya 401/429/5xx verirse aynı request havuzdan devam eder (400/404/422 dönerse pool'a düşmez). `/router status`’ta her provider `[linked]` olarak görünür.
 
-- **Coder** (Qwen Coder, DeepSeek Coder, Kimi K2): `groq` veya `cerebras` havuzuna free key olarak ekle — router load-balancing yapar.
-- **Codex**: OMP native `/login codex` OAuth ile giriş yapılır, router havuzu değil. Eğer Codex'i OpenAI-compatible proxy arkasında API key ile kullanıyorsan, `MAMAK_ROUTER_CONFIG` ile custom provider ekle.
-- **Common Code**: tüm kod modellerini `opencode-zen` + `groq` havuzlarında topla, `/router strategy <provider> weighted` ile ağırlıklı dağıt.
+## Dashboard (linked bilgisi)
 
-## Dashboard
-
-`/router dashboard` her provider için:
+`/router dashboard` her provider için `linked` ve `normalKey` durumunu gösterir:
 
 ```text
-zai — https://api.z.ai/api/paas/v4
-credentials: healthy=2 cooldown=0 total=2
-models: glm-4.7
-quota: requests=42 rate-limits=1 exhausted=0
+┌ groq — https://api.groq.com/openai/v1 [linked, normal:missing]
+│ credentials: healthy=2 cooldown=0 total=2
+│ models: openai/gpt-oss-120b, moonshotai/kimi-k2-instruct  (linked: groq/<model>  pool-only: mamak-router-groq/<model>)
+│ quota: requests=42 rate-limits=1 exhausted=0
 ```
 
-`credentials: 0 (set MAMAK_ROUTER_...)` görürsen env var eksiktir — set et, oturumu restart et.
-
+`linked` kapanırsa `MAMAK_ROUTER_CONFIG`'ta `"linkNormalProvider": false` yap — o zaman sadece `mamak-router-*` çalışır. `credentials: 0 (set MAMAK_ROUTER_...)` görürsen env var eksiktir — set et, oturumu restart et.
 ## Fallback zinciri ve priority
 
 ```json

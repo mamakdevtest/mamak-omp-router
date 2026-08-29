@@ -15,6 +15,7 @@ export interface RouterProviderConfig {
 	strategy?: RoutingStrategy;
 	fallbackProviders?: string[];
 	credentialPolicies?: CredentialPolicy[];
+	linkNormalProvider?: boolean;
 }
 
 export interface RouterPluginConfig {
@@ -30,7 +31,7 @@ export class RouterConfigurationError extends Error {
 }
 
 
-const providerFields = new Set(["id", "enabled", "baseUrl", "models", "strategy", "fallbackProviders", "credentialPolicies"]);
+const providerFields = new Set(["id", "enabled", "baseUrl", "models", "strategy", "fallbackProviders", "credentialPolicies", "linkNormalProvider"]);
 const routingFields = new Set(["maxAttemptsPerRequest", "defaultStrategy", "cooldown"]);
 const cooldownFields = new Set(["defaultSeconds", "maxSeconds"]);
 const supportedStrategies = new Set<RoutingStrategy>(["round-robin", "fallback", "fill-first", "weighted", "least-used"]);
@@ -122,7 +123,13 @@ export function validateProviderConfig(value: unknown, path = "providers[]"): Ro
 		...(value.strategy === undefined ? {} : { strategy: parseRoutingStrategy(value.strategy, `${path}.strategy`) }),
 		...(value.fallbackProviders === undefined ? {} : { fallbackProviders: parseFallbackProviders(value.fallbackProviders, `${path}.fallbackProviders`) }),
 		...(value.credentialPolicies === undefined ? {} : { credentialPolicies: parseCredentialPolicies(value.credentialPolicies, `${path}.credentialPolicies`) }),
+		...(value.linkNormalProvider === undefined ? {} : { linkNormalProvider: parseLinkNormalProvider(value.linkNormalProvider, `${path}.linkNormalProvider`) }),
 	};
+}
+
+function parseLinkNormalProvider(value: unknown, path: string): boolean {
+	if (typeof value !== "boolean") throw new RouterConfigurationError(`${path} must be a boolean`);
+	return value;
 }
 
 export function validateRouterSettings(value: unknown, path = "routing"): RouterSettings {

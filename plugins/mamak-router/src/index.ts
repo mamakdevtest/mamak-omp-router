@@ -25,15 +25,18 @@ function createCommandState(
 ): RouterCommandState {
 	return {
 		status() {
-			const lines = ["Mamak Router — type /router for completions"];
+			const lines = ["Mamak Router — type /router for completions (linked = normal provider → pool fallback)"];
 			for (const provider of config.providers) {
 				const summaries = store.listSummaries(provider.id);
 				const count = (status: string) => summaries.filter(credential => credential.status === status).length;
+				const linked = (provider.linkNormalProvider ?? true) ? "linked" : "isolated";
+				const normalEnv = `${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`;
+				const normalPresent = process.env[normalEnv] ? "present" : "missing";
 				lines.push(
 					"",
-					`${provider.id} — ${provider.baseUrl}`,
+					`${provider.id} — ${provider.baseUrl} [${linked}, normalKey:${normalPresent}]`,
 					`Healthy: ${count("healthy")}  Cooldown: ${count("cooldown") + count("rate_limited")}  Disabled: ${count("disabled") + count("invalid")}  Exhausted: ${count("exhausted")}  Total: ${summaries.length}`,
-					`Models: ${provider.models.join(", ")}`,
+					`Models: ${provider.models.join(", ")}  (use ${provider.id}/<model> for linked, mamak-router-${provider.id}/<model> for pool-only)`,
 				);
 			}
 			lines.push("", "Tip: /router dashboard for table, /router list <provider> for masked keys, export MAMAK_ROUTER_<PROVIDER>_KEYS for persistence.");
@@ -117,18 +120,21 @@ function createCommandState(
 				.join("\n");
 		},
 		dashboard() {
-			const lines = ["Mamak Router Dashboard — Open WebUI style table", "Tip: Tab to complete, Enter to run. Add test keys: /router add <provider> <key>  (e.g. /router add zai burak-test-1)"];
+			const lines = ["Mamak Router Dashboard — Open WebUI style table (linked = normal→pool)", "Tip: Tab to complete, Enter to run. Add test keys: /router add <provider> <key>  (e.g. /router add zai burak-test-1)"];
 			for (const provider of config.providers) {
 				const summaries = store.listSummaries(provider.id);
 				const quota = registration.quotaTrackers.get(provider.id)?.snapshot();
 				const healthy = summaries.filter(credential => credential.status === "healthy").length;
 				const cooldown = summaries.filter(credential => credential.status === "cooldown" || credential.status === "rate_limited").length;
 				const envHint = `MAMAK_ROUTER_${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_KEYS`;
+				const normalEnv = `${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`;
+				const linked = (provider.linkNormalProvider ?? true) ? "linked" : "isolated";
+				const normalPresent = process.env[normalEnv] ? "present" : "missing";
 				lines.push(
 					"",
-					`┌ ${provider.id} — ${provider.baseUrl}`,
+					`┌ ${provider.id} — ${provider.baseUrl} [${linked}, normal:${normalPresent}]`,
 					`│ credentials: healthy=${healthy} cooldown=${cooldown} total=${summaries.length} ${summaries.length === 0 ? `(add: /router add ${provider.id} <key>  or  export ${envHint}=key1,key2)` : ""}`,
-					`│ models: ${provider.models.join(", ")}`,
+					`│ models: ${provider.models.join(", ")}  (linked: ${provider.id}/<model>  pool-only: mamak-router-${provider.id}/<model>)`,
 					`│ quota: requests=${quota?.requestCount ?? 0} rate-limits=${quota?.rateLimitCount ?? 0} exhausted=${quota?.exhaustedCount ?? 0}${quota?.lastStatus !== undefined ? ` last=${quota.lastStatus}` : ""}`,
 				);
 			}
