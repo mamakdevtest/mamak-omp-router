@@ -47,25 +47,22 @@ export function registerRouterProviders(pi: ExtensionAPI, config: RouterPluginCo
 			// OMP requires a provider key to validate dynamic registration. The custom
 			// stream replaces it with the selected in-memory pool credential.
 			apiKey: ROUTER_API_KEY_PLACEHOLDER,
-			streamSimple: createOpenAICompatibleRouterStream(targets),
-			models: provider.models.map(id => createModelConfig(id, api)),
+			models: provider.models.map(id => createModelConfig(id, api, provider.id)),
 		});
 	}
 	return { routers, quotaTrackers };
 }
 
-function createModelConfig(id: string, api: Api): ProviderModelConfig {
+function createModelConfig(id: string, api: Api, providerId: string): ProviderModelConfig {
 	return {
 		id,
-		name: id,
+		name: `${providerId}/${id} · Mamak Router`,
 		api,
 		reasoning: false,
 		input: ["text", "image"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 128_000,
 		maxTokens: 16_384,
-		// The OMP OpenAI transport reads compatibility flags directly. An empty
-		// object selects its ordinary undefined/false behavior for custom hosts.
 		compat: {},
 	};
 }

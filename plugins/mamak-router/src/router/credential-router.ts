@@ -33,7 +33,7 @@ export class CredentialRouter {
 	readonly #now: () => number;
 
 	constructor(
-		readonly credentials: readonly CredentialSecret[],
+		readonly credentials: CredentialSecret[],
 		readonly options: CredentialRouterOptions,
 	) {
 		this.#now = options.now ?? Date.now;

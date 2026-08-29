@@ -1,6 +1,6 @@
 {
   "name": "mamak-router",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "description": "Multi-key OpenAI-compatible credential router for oh-my-pi.",
