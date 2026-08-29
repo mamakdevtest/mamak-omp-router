@@ -31,13 +31,11 @@ const STRATEGIES: RoutingStrategy[] = ["round-robin", "fallback", "fill-first", 
 
 export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandState): void {
 	pi.registerCommand("router", {
-		description: "Mamak Router — multi-key routing, free pools (ZAI/Opencode/Groq), dashboard",
+		description: "Mamak Router — provider'larına çoklu key/host ekle, otomatik fallback",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const raw = argumentPrefix.trimStart();
-			// no arg yet -> suggest subcommands
 			if (raw === "") return SUBCOMMANDS.map(s => ({ value: s.value + " ", label: s.label, description: s.description }));
 			const parts = raw.split(/\s+/);
-			// completing first token?
 			if (parts.length === 1) {
 				const pref = parts[0]!.toLowerCase();
 				return SUBCOMMANDS.filter(s => s.value.startsWith(pref)).map(s => ({ value: s.value + " ", label: s.label, description: s.description }));
@@ -46,13 +44,11 @@ export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandStat
 			const second = parts[1] ?? "";
 			const third = parts[2] ?? "";
 			const providers = state.providerIds();
-			// second token: provider id
 			if (parts.length === 2) {
 				if (["list", "quota", "dashboard", "status", "add", "remove", "enable", "disable", "strategy"].includes(cmd)) {
-					return providers.filter(p => p.startsWith(second.toLowerCase())).map(p => ({ value: p + " ", label: p, description: `${p} provider` }));
+					return providers.filter(p => p.startsWith(second.toLowerCase())).map(p => ({ value: p + " ", label: p, description: `${p} provider — OMP listesi ile bağlı` }));
 				}
 			}
-			// third token
 			if (parts.length === 3) {
 				if (["remove", "enable", "disable"].includes(cmd)) {
 					const ids = state.credentialIds(second);
@@ -62,7 +58,7 @@ export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandStat
 					return STRATEGIES.filter(s => s.startsWith(third.toLowerCase())).map(s => ({ value: s, label: s, description: `strategy ${s}` }));
 				}
 				if (cmd === "add") {
-					return [{ value: "paste-key-here", label: "paste-key-here", description: "Paste raw API key (testing) — will be SHA-256 deduped" }];
+					return [{ value: "paste-key-here", label: "paste-key-here", description: "API key'i yapıştır — sonra Enter, otomatik provider'a bağlanır" }];
 				}
 			}
 			return null;
@@ -73,8 +69,25 @@ export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandStat
 				ctx.ui.notify(state.status(), "info");
 				return;
 			}
-			const [command = "status", providerId, ...rest] = trimmed.split(/\s+/);
+			const [rawCommand = "status", rawProvider, ...rest] = trimmed.split(/\s+/);
+			const command = rawCommand.toLowerCase();
+			const providerId = rawProvider ? normalizeProviderId(rawProvider) : undefined;
 			const value = rest.join(" ");
+			// Interactive /router add <provider> → key sor
+			if (command === "add" && providerId && !value) {
+				const key = await ctx.ui.input(`Key for ${providerId}`, "sk-... / zai-... / zen-... (boş bırakırsan iptal)");
+				if (!key || !key.trim()) {
+					ctx.ui.notify("Router add iptal — key girilmedi. Tekrar: /router add opencode-zen <key>", "warning");
+					return;
+				}
+				try {
+					const msg = await state.add(providerId, key.trim());
+					ctx.ui.notify(msg, msg.startsWith("Router error:") ? "error" : "info");
+				} catch (e) {
+					ctx.ui.notify(`Router error: ${e instanceof Error ? e.message : String(e)}`, "error");
+				}
+				return;
+			}
 			try {
 				const message = await runRouterCommand(state, command, providerId, value);
 				ctx.ui.notify(message, message.startsWith("Router error:") ? "error" : "info");
@@ -83,6 +96,23 @@ export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandStat
 			}
 		},
 	});
+}
+function normalizeProviderId(raw: string): string {
+	const lower = raw.toLowerCase().trim();
+	const slug = lower.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+	const aliases: Record<string, string> = {
+		"open": "openrouter",
+		"open-source": "opencode-zen",
+		"opencode": "opencode-zen",
+		"opencodezen": "opencode-zen",
+		"open-code-zen": "opencode-zen",
+		"zai": "zai",
+		"z-ai": "zai",
+		"groq": "groq",
+		"cerebras": "cerebras",
+		"deepseek": "deepseek",
+	};
+	return aliases[slug] ?? slug;
 }
 
 async function runRouterCommand(state: RouterCommandState, command: string, providerId?: string, value?: string): Promise<string> {

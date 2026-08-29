@@ -2,8 +2,12 @@ import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import type { RouterPluginConfig } from "./config/schema";
 import { registerRouterCommand, type RouterCommandState } from "./commands/router-command";
 import { loadRouterConfig } from "./config/loader";
+import type { CredentialSecret } from "./credentials/credential-types";
 import { CredentialStore } from "./credentials/credential-store";
+import { CredentialRouter } from "./router/credential-router";
 import { importCredentialsFromEnvironment, sha256Fingerprint } from "./credentials/credential-import";
+import { ProviderQuotaTracker } from "./router/quota-tracker";
+import { createLinkedProviderStream } from "./provider/request-adapter";
 import { registerRouterProviders, type RouterProviderRegistration } from "./provider/register-provider";
 export default async function mamakRouter(pi: ExtensionAPI): Promise<void> {
 	const config = loadRouterConfig();
@@ -15,10 +19,29 @@ export default async function mamakRouter(pi: ExtensionAPI): Promise<void> {
 	pi.logger.info(
 		`[mamak-router] providers=${registration.routers.size} credentials=${imported.added.length} duplicates=${imported.duplicateCount}`,
 	);
-	registerRouterCommand(pi, createCommandState(config, store, registration));
+	registerRouterCommand(pi, createCommandState(pi, config, store, registration));
+}
+
+function getBaseUrlForProvider(id: string): string | undefined {
+	const map: Record<string, string> = {
+		"deepseek": "https://api.deepseek.com/v1",
+		"openrouter": "https://openrouter.ai/api/v1",
+		"zai": "https://api.z.ai/api/paas/v4",
+		"opencode-zen": "https://opencode.ai/zen/v1",
+		"groq": "https://api.groq.com/openai/v1",
+		"cerebras": "https://api.cerebras.ai/v1",
+		"openai": "https://api.openai.com/v1",
+		"anthropic": "https://api.anthropic.com",
+		"google": "https://generativelanguage.googleapis.com/v1",
+		"mistral": "https://api.mistral.ai/v1",
+		"minimax": "https://api.minimax.chat/v1",
+		"qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+	};
+	return map[id];
 }
 
 function createCommandState(
+	pi: ExtensionAPI,
 	config: RouterPluginConfig,
 	store: CredentialStore,
 	registration: RouterProviderRegistration,
@@ -55,9 +78,27 @@ function createCommandState(
 				.join("\n");
 		},
 		async add(providerId, secret) {
-			const normalized = providerId.toLowerCase();
-			const cfg = config.providers.find(p => p.id === normalized);
-			if (!cfg) return `Router error: unknown provider ${providerId}. Known: ${config.providers.map(p => p.id).join(", ")}`;
+			const normalized = providerId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+			let cfg = config.providers.find(p => p.id === normalized);
+			if (!cfg) {
+				const baseUrl = getBaseUrlForProvider(normalized);
+				if (!baseUrl) return `Router error: unknown provider ${providerId}. Known: ${config.providers.map(p => p.id).join(", ")} — add custom via MAMAK_ROUTER_CONFIG with baseUrl.`;
+				cfg = { id: normalized, enabled: true, baseUrl, models: ["default"], linkNormalProvider: true };
+				config.providers.push(cfg);
+				const quotaTracker = new ProviderQuotaTracker(normalized);
+				const router = new CredentialRouter([], { strategy: config.routing.defaultStrategy, settings: config.routing, quotaTracker });
+				registration.routers.set(normalized, router);
+				registration.quotaTrackers.set(normalized, quotaTracker);
+				const targets = [{ providerId: normalized, baseUrl, models: cfg.models, router }];
+				pi.registerProvider(normalized, {
+					baseUrl,
+					api: `mamak-router-linked-${normalized}` as never,
+					apiKey: "MAMAK_ROUTER_MANAGED_KEY",
+					streamSimple: createLinkedProviderStream(targets as never),
+					models: cfg.models.map(id => ({ id, name: `${normalized}/${id} · Mamak Router`, api: `mamak-router-linked-${normalized}` as never, reasoning: false, input: ["text", "image"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 16384, compat: {} })),
+				});
+				pi.logger.info(`[mamak-router] dynamically added provider ${normalized} via /router add`);
+			}
 			const trimmed = secret.trim();
 			if (trimmed.length < 4) return "Router error: key too short";
 			const fingerprint = await sha256Fingerprint(trimmed);
@@ -76,8 +117,7 @@ function createCommandState(
 			if (!added) return `Router skipped duplicate key (SHA-256 match) — see /router list ${normalized}`;
 			const router = registration.routers.get(normalized);
 			if (router) router.credentials.push({ credential, secret: trimmed });
-			// also update quota tracker already exists
-			return `Added ${nextId} to ${normalized} (****${fingerprint.slice(-4).toUpperCase()}). Test: /router list ${normalized}  — persistence needs export MAMAK_ROUTER_${normalized.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_KEYS`;
+			return `Added ${nextId} to ${normalized} (****${fingerprint.slice(-4).toUpperCase()}). Directly linked to ${normalized} — use ${normalized}/<model> and it will auto-fallback to this pool. Test: /router list ${normalized}  — persistence needs export MAMAK_ROUTER_${normalized.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_KEYS`;
 		},
 		remove(providerId, credentialId) {
 			const credential = store.getSummary(credentialId);
@@ -86,7 +126,7 @@ function createCommandState(
 			store.remove(credentialId);
 			const router = registration.routers.get(providerId);
 			if (router) {
-				const idx = router.credentials.findIndex(c => c.credential.id === credentialId);
+				const idx = router.credentials.findIndex((c: CredentialSecret) => c.credential.id === credentialId);
 				if (idx >= 0) router.credentials.splice(idx, 1);
 			}
 			return `Removed ${credentialId} from this session. For persistence remove it from MAMAK_ROUTER_${providerId.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_KEYS before restart.`;

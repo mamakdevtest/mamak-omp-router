@@ -40,15 +40,8 @@ export function registerRouterProviders(pi: ExtensionAPI, config: RouterPluginCo
 				targets.push({ providerId, baseUrl: candidate.baseUrl, models: candidate.models, router });
 			}
 		}
-		const api = `mamak-router-openai-${provider.id}` as Api;
-		pi.registerProvider(`mamak-router-${provider.id}`, {
-			baseUrl: provider.baseUrl,
-			api,
-			apiKey: ROUTER_API_KEY_PLACEHOLDER,
-			streamSimple: createOpenAICompatibleRouterStream(targets),
-			models: provider.models.map(id => createModelConfig(id, api, provider.id)),
-		});
-		// Link normal provider: groq/gpt-oss-120b etc. now tries normal key first, then router pool
+		// No standalone mamak-router-* namespace — pool now lives inside the normal provider itself.
+		// Selecting groq/gpt-oss-120b etc. will first try the normal key, then fall back to the pooled keys.
 		if (provider.linkNormalProvider ?? true) {
 			const linkedApi = `mamak-router-linked-${provider.id}` as Api;
 			pi.registerProvider(provider.id, {
