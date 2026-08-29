@@ -43,7 +43,12 @@ function createCommandState(
 		},
 		list(providerId) {
 			const summaries = store.listSummaries(providerId);
-			if (summaries.length === 0) return providerId ? `No credentials for ${providerId}.` : "No router credentials imported.";
+			if (summaries.length === 0) {
+				const hint = providerId
+					? `No credentials for ${providerId}. Set MAMAK_ROUTER_${providerId.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_KEYS and restart.`
+					: "No router credentials imported. Set MAMAK_ROUTER_<PROVIDER>_KEYS (e.g. MAMAK_ROUTER_ZAI_KEYS, MAMAK_ROUTER_OPENCODE_ZEN_KEYS) and restart.";
+				return hint;
+			}
 			return summaries
 				.map(credential => `${credential.id}\t****${credential.fingerprint.slice(-4).toUpperCase()}\t${credential.status}`)
 				.join("\n");
@@ -84,16 +89,18 @@ function createCommandState(
 				.join("\n");
 		},
 		dashboard() {
-			const lines = ["Mamak Router Dashboard"];
+			const lines = ["Mamak Router Dashboard", "Tip: /router status, /router list <provider>, /router quota [provider] — use MAMAK_ROUTER_<PROVIDER>_KEYS for free pools"];
 			for (const provider of config.providers) {
 				const summaries = store.listSummaries(provider.id);
 				const quota = registration.quotaTrackers.get(provider.id)?.snapshot();
 				const healthy = summaries.filter(credential => credential.status === "healthy").length;
 				const cooldown = summaries.filter(credential => credential.status === "cooldown" || credential.status === "rate_limited").length;
+				const envHint = `MAMAK_ROUTER_${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_KEYS`;
 				lines.push(
 					"",
-					provider.id,
-					`credentials: healthy=${healthy} cooldown=${cooldown} total=${summaries.length}`,
+					`${provider.id} — ${provider.baseUrl}`,
+					`credentials: healthy=${healthy} cooldown=${cooldown} total=${summaries.length} ${summaries.length === 0 ? `(set ${envHint})` : ""}`,
+					`models: ${provider.models.join(", ")}`,
 					quota
 						? `quota: requests=${quota.requestCount} rate-limits=${quota.rateLimitCount} exhausted=${quota.exhaustedCount}`
 						: "quota: unavailable",

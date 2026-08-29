@@ -21,15 +21,15 @@ export function registerRouterCommand(pi: ExtensionAPI, state: RouterCommandStat
 		},
 	});
 }
-
 function runRouterCommand(state: RouterCommandState, command: string, providerId?: string, value?: string): string {
-	switch (command) {
+	switch (command.toLowerCase()) {
+		case "":
 		case "status":
 			return state.status();
 		case "list":
 			return state.list(providerId);
 		case "add":
-			return "Router error: secure API-key input is not exposed by oh-my-pi extensions. Add keys with MAMAK_ROUTER_<PROVIDER>_KEYS or MAMAK_ROUTER_CONFIG, then restart the session.";
+			return "Router error: secure API-key input is not exposed by oh-my-pi extensions. Add free keys with MAMAK_ROUTER_<PROVIDER>_KEYS (e.g. MAMAK_ROUTER_ZAI_KEYS, MAMAK_ROUTER_OPENCODE_ZEN_KEYS, MAMAK_ROUTER_GROQ_KEYS, MAMAK_ROUTER_CEREBRAS_KEYS) or MAMAK_ROUTER_CONFIG, then restart the session and use /router status — not plain \"router\".";
 		case "remove":
 			if (!providerId || !value) return "Router error: usage: /router remove <provider> <credential>";
 			return state.remove(providerId, value);

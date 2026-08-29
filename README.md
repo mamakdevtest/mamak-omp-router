@@ -51,10 +51,9 @@ Provider-specific variables are also supported:
 
 ```sh
 export MAMAK_ROUTER_OPENROUTER_KEYS='key-1,key-2'
-export MAMAK_ROUTER_ZAI_KEYS='key-1,key-2'
-```
-
 Keys may instead be supplied as numbered variables such as `DEEPSEEK_KEY_001`, `DEEPSEEK_KEY_002`, and `MAMAK_ROUTER_DEEPSEEK_KEY_003`.
+
+Free pools: see `docs/FREE_TOKENS.md` for ZAI / Opencode Zen / Groq / Cerebras free-key setup, dashboard usage, and Coder/Codex guidance.
 
 ## Configuration
 
@@ -122,8 +121,7 @@ omp plugin marketplace update mamak-omp-router
 omp plugin upgrade mamak-router@mamak-omp-router
 ```
 
-`update` refreshes only the catalog. `upgrade` reinstalls the plugin version. Restart the session after an extension update.
-
+`update` refreshes only the catalog. `upgrade` reinstalls the plugin version. Restart the session after an extension update. Free-token pools are configured with `MAMAK_ROUTER_<PROVIDER>_KEYS` — see `docs/FREE_TOKENS.md`.
 ## Compatibility
 
 | 0.1.x | `@oh-my-pi/pi-coding-agent` and `@oh-my-pi/pi-ai` `>=18.0.11 <19` |
@@ -142,8 +140,7 @@ bun run build
 
 ## Limitations
 
-- OAuth account pooling for Claude Code, Codex, and Gemini cannot be implemented safely with the current public OMP extension API. It exposes OAuth `login`/`refreshToken` registration but no extension-accessible account list, credential selection, or credential store.
-- No secure interactive key entry or persistent secret CRUD until OMP exposes public APIs for both.
+- OAuth account pooling for Claude Code, Codex, and Gemini cannot be implemented safely with the current public OMP extension API (needs account list/select). Free-token use for these systems is still supported **via API-key pools**: paste the free keys you receive from ZAI, OpenRouter, Opencode Zen, Groq/Cerebras etc. into `MAMAK_ROUTER_<PROVIDER>_KEYS` — the router then load-balances them like any other OpenAI-compatible provider. Codex OAuth (`/login codex`) remains outside the router; if you have a Codex **API key** behind an OpenAI-compatible proxy, add it as a custom `baseUrl` provider.
 - Provider model metadata is conservative generic metadata; configure custom model ids explicitly.
 - Quota tracking counts provider outcomes in memory; normalized OMP transport errors do not always retain raw quota headers.
 - Retry headers are used only when propagated by the transport. OMP's built-in OpenAI stream normalizes some errors before the plugin can inspect headers.
